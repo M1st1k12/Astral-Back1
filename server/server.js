@@ -28,12 +28,20 @@ const __dirname = path.dirname(__filename);
 
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
-const CLIENT_ORIGIN = process.env.CLIENT_ORIGIN || "http://localhost:5173";
+const CLIENT_ORIGINS = [
+  "https://astralstarmessenger.netlify.app",
+  "https://6981132707b74505fcfa3297--astralstarmessenger.netlify.app",
+  "http://localhost:5173"
+];
 
 app.set("io", io);
 
 app.use(cors({
-  origin: CLIENT_ORIGIN,
+  origin: (origin, cb) => {
+    if (!origin) return cb(null, true);
+    if (CLIENT_ORIGINS.includes(origin)) return cb(null, true);
+    return cb(new Error("Not allowed by CORS"), false);
+  },
   credentials: true
 }));
 app.use(express.json({ limit: "2mb" }));
