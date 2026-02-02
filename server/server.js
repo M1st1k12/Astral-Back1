@@ -30,20 +30,30 @@ const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const CLIENT_ORIGINS = [
   "https://astralstarmessenger.netlify.app",
-  "https://6981132707b74505fcfa3297--astralstarmessenger.netlify.app",
   "http://localhost:5173"
 ];
+const EXTRA_ORIGINS = (process.env.EXTRA_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (CLIENT_ORIGINS.includes(origin)) return true;
+  if (EXTRA_ORIGINS.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+--astralstarmessenger\.netlify\.app$/i.test(origin)) return true;
+  return false;
+}
 
 app.set("io", io);
 
 app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin) return cb(null, true);
-    if (CLIENT_ORIGINS.includes(origin)) return cb(null, true);
-    return cb(new Error("Not allowed by CORS"), false);
-  },
-  credentials: true
+  origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
 }));
+app.options("*", cors());
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
