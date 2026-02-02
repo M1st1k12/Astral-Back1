@@ -46,7 +46,8 @@ router.get("/posts", auth, requireAdmin, async (req, res) => {
   const posts = await Post.find()
     .sort({ createdAt: -1 })
     .limit(limit)
-    .populate("author", "username userTag");
+    .populate("author", "username userTag")
+    .select("content createdAt views boost likes comments author");
   res.json({ posts });
 });
 
@@ -80,6 +81,33 @@ router.post("/users/:id/admin", auth, requireAdmin, async (req, res) => {
   const user = await User.findByIdAndUpdate(req.params.id, { isAdmin: !!isAdmin }, { new: true })
     .select("username userTag isAdmin");
   res.json({ user });
+});
+
+router.post("/posts/:id/boost", auth, requireAdmin, async (req, res) => {
+  const { likes, comments, views, mode } = req.body || {};
+  const safe = (value) => {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return null;
+    return Math.max(0, Math.floor(num));
+  };
+
+  const likesVal = safe(likes);
+  const commentsVal = safe(comments);
+  const viewsVal = safe(views);
+
+  const isInc = mode === "inc";
+  const update = {};
+
+  if (likesVal !== null) update[isInc ? "$inc" : "$set"] = { ...(update[isInc ? "$inc" : "$set"] || {}), "boost.likes": likesVal };
+  if (commentsVal !== null) update[isInc ? "$inc" : "$set"] = { ...(update[isInc ? "$inc" : "$set"] || {}), "boost.comments": commentsVal };
+  if (viewsVal !== null) update[isInc ? "$inc" : "$set"] = { ...(update[isInc ? "$inc" : "$set"] || {}), "boost.views": viewsVal };
+
+  if (!update.$set && !update.$inc) return res.status(400).json({ message: "No boost values" });
+
+  const post = await Post.findByIdAndUpdate(req.params.id, update, { new: true })
+    .select("boost");
+
+  res.json({ post });
 });
 
 export default router;

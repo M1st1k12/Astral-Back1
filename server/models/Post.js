@@ -19,7 +19,12 @@ const PostSchema = new mongoose.Schema(
     repostOf: { type: mongoose.Schema.Types.ObjectId, ref: "Post", default: null },
     hashtags: [{ type: String, index: true }],
     views: { type: Number, default: 0 },
-    viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }]
+    viewedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    boost: {
+      likes: { type: Number, default: 0 },
+      comments: { type: Number, default: 0 },
+      views: { type: Number, default: 0 }
+    }
   },
   { timestamps: true }
 );

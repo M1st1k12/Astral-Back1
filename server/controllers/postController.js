@@ -14,6 +14,11 @@ async function emitNotification(io, notification) {
   io.to(notification.user.toString()).emit("notification:new", populated);
 }
 
+async function emitPost(io, event, post) {
+  if (!io || !post) return;
+  io.emit(event, post);
+}
+
 async function markViews(posts, userId) {
   if (!userId || posts.length === 0) return;
   const ops = posts
@@ -52,6 +57,8 @@ export async function createPost(req, res, next) {
       "author",
       "username avatar clan"
     );
+
+    await emitPost(req.app.get("io"), "post:new", populated);
 
     res.status(201).json({ post: populated });
   } catch (err) {
@@ -108,8 +115,8 @@ export async function getGlobalFeed(req, res, next) {
     const now = Date.now();
     const scored = visible.map((p) => {
       const ageHours = (now - new Date(p.createdAt).getTime()) / 36e5;
-      const likes = p.likes?.length || 0;
-      const comments = p.comments?.length || 0;
+      const likes = (p.likes?.length || 0) + (p.boost?.likes || 0);
+      const comments = (p.comments?.length || 0) + (p.boost?.comments || 0);
       const score = likes * 2 + comments * 3 + Math.max(0, 24 - ageHours);
       return { p, score };
     });
@@ -194,6 +201,8 @@ export async function toggleLike(req, res, next) {
       .populate("author", "username avatar clan")
       .populate("comments.user", "username avatar");
 
+    await emitPost(req.app.get("io"), "post:update", populated);
+
     res.json({ post: populated });
   } catch (err) {
     next(err);
@@ -223,6 +232,8 @@ export async function addComment(req, res, next) {
     const populated = await Post.findById(post._id)
       .populate("author", "username avatar clan")
       .populate("comments.user", "username avatar");
+
+    await emitPost(req.app.get("io"), "post:update", populated);
 
     res.json({ post: populated });
   } catch (err) {
@@ -260,6 +271,9 @@ export async function repost(req, res, next) {
     const populated = await Post.findById(post._id)
       .populate("author", "username avatar clan")
       .populate({ path: "repostOf", populate: { path: "author", select: "username avatar clan" } });
+
+    await emitPost(req.app.get("io"), "post:new", populated);
+
     res.status(201).json({ post: populated });
   } catch (err) {
     next(err);
@@ -299,6 +313,9 @@ export async function deletePost(req, res, next) {
       }
     }
     await Post.findByIdAndDelete(req.params.id);
+
+    await emitPost(req.app.get("io"), "post:delete", { _id: post._id });
+
     res.json({ ok: true });
   } catch (err) {
     next(err);
