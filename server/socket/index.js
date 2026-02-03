@@ -1,13 +1,31 @@
-﻿import { Server } from "socket.io";
+import { Server } from "socket.io";
 import jwt from "jsonwebtoken";
 import User from "../models/User.js";
 import Message from "../models/Message.js";
 
+const CLIENT_ORIGINS = [
+  "https://astralstarmessenger.netlify.app",
+  "http://localhost:5173"
+];
+const EXTRA_ORIGINS = (process.env.EXTRA_ORIGINS || "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean);
+
+function isAllowedOrigin(origin) {
+  if (!origin) return true;
+  if (CLIENT_ORIGINS.includes(origin)) return true;
+  if (EXTRA_ORIGINS.includes(origin)) return true;
+  if (/^https:\/\/[a-z0-9-]+--astralstarmessenger\.netlify\.app$/i.test(origin)) return true;
+  return false;
+}
+
 export function initSocket(server) {
   const io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_ORIGIN || "http://localhost:5173",
-      credentials: true
+      origin: (origin, cb) => cb(null, isAllowedOrigin(origin)),
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     }
   });
 
@@ -66,3 +84,4 @@ export function initSocket(server) {
 
   return io;
 }
+
